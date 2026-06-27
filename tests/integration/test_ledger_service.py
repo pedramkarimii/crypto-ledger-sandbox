@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from app.db.session import AsyncSessionFactory
+from app.db.session import AsyncSessionFactory, engine
 from app.models.enums import BalanceBucket, LedgerEntryType, WalletOwnerType
 from app.models.ledger import LedgerEntry
 from app.models.user import User
@@ -22,6 +22,13 @@ def test_sandbox_funding_is_balanced_and_idempotent() -> None:
 
 
 async def exercise_sandbox_funding() -> None:
+    try:
+        await _exercise_sandbox_funding()
+    finally:
+        await engine.dispose()
+
+
+async def _exercise_sandbox_funding() -> None:
     await seed_development_data()
 
     email = f"ledger-{uuid4().hex}@example.com"
