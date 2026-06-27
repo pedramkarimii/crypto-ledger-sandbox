@@ -36,3 +36,14 @@ class LedgerEntryType(StrEnum):
 class BalanceBucket(StrEnum):
     AVAILABLE = "available"
     LOCKED = "locked"
+
+
+class OrderSide(StrEnum):
+    BUY = "buy"
+    SELL = "sell"
+
+
+class OrderStatus(StrEnum):
+    OPEN = "open"
+    CANCELED = "canceled"
+    FILLED = "filled"
