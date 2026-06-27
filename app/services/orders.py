@@ -19,6 +19,7 @@ from app.models.enums import (
 from app.models.ledger import LedgerEntry, LedgerTransaction
 from app.models.order import Order
 from app.models.wallet import Wallet
+from app.services.outbox import enqueue_outbox_event
 
 
 class OrderServiceError(Exception):
@@ -260,6 +261,26 @@ async def create_order_reservation(
         ]
     )
 
+    await session.flush()
+    await enqueue_outbox_event(
+        session,
+        event_type="order.created",
+        aggregate_type="order",
+        aggregate_id=order.id,
+        payload={
+            "order_id": str(order.id),
+            "user_id": str(order.user_id),
+            "base_asset_code": base_asset.code,
+            "quote_asset_code": quote_asset.code,
+            "side": order.side.value,
+            "status": order.status.value,
+            "price": str(order.price),
+            "quantity": str(order.quantity),
+            "reserved_asset_code": reserve_asset.code,
+            "reserved_amount": str(order.reserved_amount),
+        },
+    )
+
     await session.commit()
     await session.refresh(order)
 
@@ -378,6 +399,21 @@ async def cancel_order_reservation(
                 description="Return to available balance",
             ),
         ]
+    )
+
+    await enqueue_outbox_event(
+        session,
+        event_type="order.canceled",
+        aggregate_type="order",
+        aggregate_id=order.id,
+        payload={
+            "order_id": str(order.id),
+            "user_id": str(order.user_id),
+            "side": order.side.value,
+            "status": order.status.value,
+            "reserved_asset_code": reserve_asset.code,
+            "reserved_amount": str(order.reserved_amount),
+        },
     )
 
     await session.commit()
