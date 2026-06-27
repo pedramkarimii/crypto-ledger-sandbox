@@ -6,3 +6,5 @@ alembic>=1.13,<2.0
 redis>=5.0,<7.0
 aio-pika>=9.0,<10.0
 python-json-logger>=3.0,<4.0
+pwdlib[argon2]>=0.3,<0.4
+PyJWT>=2.13,<3.0

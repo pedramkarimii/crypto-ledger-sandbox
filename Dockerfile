@@ -6,9 +6,9 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install --no-install-recommends -y curl && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY requirements.txt requirements-dev.txt ./
 
-RUN python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+RUN python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
 
 COPY . .
 
