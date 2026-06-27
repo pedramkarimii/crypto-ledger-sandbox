@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.routes.auth import router as auth_router
+from app.api.routes.balances import router as balances_router
 from app.api.routes.me import router as me_router
 from app.api.routes.wallets import router as wallet_router
 from app.core.config import get_settings
@@ -30,6 +31,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(balances_router, prefix="/api/v1")
 app.include_router(me_router, prefix="/api/v1")
 app.include_router(wallet_router, prefix="/api/v1")
 

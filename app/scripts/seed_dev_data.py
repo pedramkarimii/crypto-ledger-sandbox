@@ -16,9 +16,7 @@ async def main() -> None:
         raise RuntimeError("Development seed is disabled outside development.")
 
     async with AsyncSessionFactory() as session:
-        asset = await session.scalar(
-            select(Asset).where(Asset.code == "USDT")
-        )
+        asset = await session.scalar(select(Asset).where(Asset.code == "USDT"))
         if asset is None:
             asset = Asset(
                 code="USDT",
