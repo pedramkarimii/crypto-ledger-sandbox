@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import quote
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,10 +27,20 @@ class Settings(BaseSettings):
     RABBITMQ_DEFAULT_PASS: str
     RABBITMQ_HOST: str = "rabbitmq"
     RABBITMQ_PORT: int = 5672
+    RABBITMQ_EVENTS_EXCHANGE: str = "crypto.ledger.events"
+    OUTBOX_RELAY_POLL_SECONDS: float = 1.0
 
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    @property
+    def rabbitmq_url(self) -> str:
+        username = quote(self.RABBITMQ_DEFAULT_USER, safe="")
+        password = quote(self.RABBITMQ_DEFAULT_PASS, safe="")
+        return (
+            f"amqp://{username}:{password}@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}/"
+        )
 
     @property
     def database_url(self) -> str:

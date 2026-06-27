@@ -60,5 +60,22 @@ services:
       timeout: 5s
       retries: 10
 
+  outbox-relay:
+    build:
+      context: .
+    container_name: crypto-ledger-outbox-relay
+    command: python -m app.workers.outbox_relay
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    profiles: ["worker"]
+
 volumes:
   postgres_data:
