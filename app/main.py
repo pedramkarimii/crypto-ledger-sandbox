@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.routes.auth import router as auth_router
+from app.api.routes.me import router as me_router
 from app.core.config import get_settings
 from app.db.session import engine
 
@@ -18,13 +20,16 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.1.0",
+    version="0.2.0",
     description=(
         "A production-style crypto trading sandbox. "
         "It does not connect to real exchanges or handle real funds."
     ),
     lifespan=lifespan,
 )
+
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(me_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["System"])
