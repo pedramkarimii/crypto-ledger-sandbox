@@ -5,6 +5,7 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from app.db.session import AsyncSessionFactory, engine
+from app.models.asset import Asset
 from app.models.enums import BalanceBucket, LedgerEntryType, WalletOwnerType
 from app.models.ledger import LedgerEntry
 from app.models.user import User
@@ -44,10 +45,14 @@ async def _exercise_sandbox_funding() -> None:
         await session.commit()
         await session.refresh(user)
 
+        usdt_asset = await session.scalar(select(Asset).where(Asset.code == "USDT"))
+        assert usdt_asset is not None
+
         treasury_wallet = await session.scalar(
             select(Wallet).where(
                 Wallet.owner_type == WalletOwnerType.SYSTEM,
                 Wallet.system_account == TREASURY_ACCOUNT,
+                Wallet.asset_id == usdt_asset.id,
             )
         )
         assert treasury_wallet is not None
@@ -76,6 +81,7 @@ async def _exercise_sandbox_funding() -> None:
             select(Wallet).where(
                 Wallet.owner_type == WalletOwnerType.USER,
                 Wallet.user_id == user.id,
+                Wallet.asset_id == usdt_asset.id,
             )
         )
         assert user_wallet is not None
