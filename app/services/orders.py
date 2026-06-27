@@ -270,3 +270,121 @@ async def create_order_reservation(
         reserve_asset=reserve_asset,
         replayed=False,
     )
+
+
+class OrderNotFoundError(OrderServiceError):
+    pass
+
+
+class OrderNotCancelableError(OrderServiceError):
+    pass
+
+
+class OrderReservationStateError(OrderServiceError):
+    pass
+
+
+@dataclass(frozen=True)
+class OrderCancellationResult:
+    order: Order
+    reserve_asset: Asset
+    replayed: bool
+
+
+async def cancel_order_reservation(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    order_id: UUID,
+) -> OrderCancellationResult:
+    order = await session.scalar(
+        select(Order)
+        .where(
+            Order.id == order_id,
+            Order.user_id == user_id,
+        )
+        .with_for_update()
+    )
+    if order is None:
+        raise OrderNotFoundError(f"Order {order_id} was not found.")
+
+    reserve_asset_id = (
+        order.quote_asset_id if order.side == OrderSide.BUY else order.base_asset_id
+    )
+    reserve_asset = await session.scalar(
+        select(Asset).where(Asset.id == reserve_asset_id)
+    )
+    if reserve_asset is None:
+        raise OrderReservationStateError("Reserved asset was not found.")
+
+    if order.status == OrderStatus.CANCELED:
+        return OrderCancellationResult(
+            order=order,
+            reserve_asset=reserve_asset,
+            replayed=True,
+        )
+    if order.status != OrderStatus.OPEN:
+        raise OrderNotCancelableError(
+            f"Only open orders can be canceled; current status is {order.status.value}."
+        )
+
+    wallet = await session.scalar(
+        select(Wallet)
+        .where(
+            Wallet.owner_type == WalletOwnerType.USER,
+            Wallet.user_id == user_id,
+            Wallet.asset_id == reserve_asset.id,
+        )
+        .with_for_update()
+    )
+    if wallet is None or wallet.locked_balance < order.reserved_amount:
+        raise OrderReservationStateError(
+            "Locked balance does not cover the order reservation."
+        )
+
+    transaction = LedgerTransaction(
+        reference=f"REL-{uuid4().hex[:20].upper()}",
+        transaction_type=LedgerTransactionType.ORDER_RELEASE,
+        status=LedgerTransactionStatus.POSTED,
+        description=(
+            f"Release {order.reserved_amount} {reserve_asset.code} for order {order.id}"
+        ),
+    )
+    session.add(transaction)
+    await session.flush()
+
+    wallet.locked_balance -= order.reserved_amount
+    wallet.available_balance += order.reserved_amount
+    order.status = OrderStatus.CANCELED
+
+    session.add_all(
+        [
+            LedgerEntry(
+                transaction_id=transaction.id,
+                wallet_id=wallet.id,
+                entry_type=LedgerEntryType.DEBIT,
+                balance_bucket=BalanceBucket.LOCKED,
+                amount=order.reserved_amount,
+                sequence=1,
+                description="Release from locked balance",
+            ),
+            LedgerEntry(
+                transaction_id=transaction.id,
+                wallet_id=wallet.id,
+                entry_type=LedgerEntryType.CREDIT,
+                balance_bucket=BalanceBucket.AVAILABLE,
+                amount=order.reserved_amount,
+                sequence=2,
+                description="Return to available balance",
+            ),
+        ]
+    )
+
+    await session.commit()
+    await session.refresh(order)
+
+    return OrderCancellationResult(
+        order=order,
+        reserve_asset=reserve_asset,
+        replayed=False,
+    )
